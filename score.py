@@ -1,3 +1,9 @@
+# author: Zicheng(Leo) Xiao
+# Date: 2024-10-24
+# Description: This script scores the documents using different methods, including TF, TF-IDF, and WF-IDF.
+# The scores are saved to the "scores" folder in the output directory.
+# virtualenv: cuda_env
+
 import itertools
 import os
 import pickle
