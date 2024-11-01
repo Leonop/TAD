@@ -139,24 +139,31 @@ def load_data(input_file):
     meta['quarter'] = meta['date'].dt.quarter
     meta['sentenceid'] = meta['transcriptcomponentid'].astype(str) 
     # write the processed data to files in input folder, documents.txt and document_ids.txt
-    write_df_to_files(meta, 'sentenceid', 'componenttext', 4, 1000)
+    write_df_to_files(meta, 'sentenceid', 'componenttext', 2, 1000)
+    save_id2firm(meta, 'all')
     return None
 
-    
+def save_id2firm(df, filename):
+    output_dir = os.path.join(gl.DATA_FOLDER, 'input', f'id2firms_{filename}.txt')
+    id2firm = df[['transcriptid', 'companyid', 'gvkey', 'year', 'quarter', 'date', 'sentenceid', 'proid', 'transcriptpersonname']]
+    # Save the DataFrame to a text file without the index
+    id2firm.to_csv(output_dir, sep='\t', index=False, header=True)
 
 def process_chunk(chunk_df, id_column, text_column):
-    """Process a chunk of DataFrame"""
-    # Remove or replace line breaks in the text column
-    cleaned_texts = chunk_df[text_column].astype(str).str.replace('\n', ' ', regex=False)
-    
-    return (
-        '\n'.join(chunk_df[id_column].astype(str)),
-        '\n'.join(cleaned_texts)
-    )
+    """Process a chunk of DataFrame."""
+    try:
+        cleaned_texts = chunk_df[text_column].astype(str).str.replace('\n', ' ', regex=False)
+        return (
+            '\n'.join(chunk_df[id_column].astype(str)),
+            '\n'.join(cleaned_texts)
+        )
+    except Exception as e:
+        print(f"Error processing chunk: {e}")
+        return "", ""
 
-def write_df_to_files(df, id_column, text_column, n_workers=4, chunk_size=1000):
-    id_file = os.path.join(gl.DATA_FOLDER, "input", "temp",  "document_ids.txt")
-    text_file = os.path.join(gl.DATA_FOLDER, "input", "temp",  "documents.txt")
+def write_df_to_files(df, id_column, text_column, n_workers=2, chunk_size=1000):
+    id_file = os.path.join(gl.DATA_FOLDER, "input",  "document_ids.txt")
+    text_file = os.path.join(gl.DATA_FOLDER, "input",  "documents.txt")
     
     chunks = [df[i:i + chunk_size] for i in range(0, len(df), chunk_size)]
     
@@ -169,10 +176,12 @@ def write_df_to_files(df, id_column, text_column, n_workers=4, chunk_size=1000):
             total=len(chunks),
             desc="Processing chunks"
         ))
+        pool.close()  # Properly close the pool
+        pool.join()   # Wait for all workers to finish
     
     # Write results to files
-    with open(id_file, 'w', encoding='utf-8') as f_id, \
-         open(text_file, 'w', encoding='utf-8') as f_text:
+    with open(id_file, 'a', encoding='utf-8') as f_id, \
+         open(text_file, 'a', encoding='utf-8') as f_text:
         for ids, texts in results:
             f_id.write(ids + '\n')
             f_text.write(texts + '\n')

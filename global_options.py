@@ -14,7 +14,7 @@ INPUT_file = os.path.join('..', 'narrativesBERT','data', 'earnings_calls_2023101
 
 # Composite key in earnings call data
 UNIQUE_KEYS = ['companyid', 'gvkey', 'mostimportantdateutc', 'componentorder', 'transcriptcomponenttypename'] # composite key in earnings call data
-SELECTED_COLS = ['companyid', 'gvkey', 'mostimportantdateutc', 'componentorder', 'transcriptcomponenttypename', 'transcriptid', 'speakertypeid', 'componenttext', 'word_count', 'year', 'isdelayed_flag', 'transcriptcomponentid', 'keydevid']
+SELECTED_COLS = ['companyid', 'gvkey', 'mostimportantdateutc', 'componentorder', 'transcriptcomponenttypename', 'transcriptid', 'speakertypeid', 'componenttext', 'word_count', 'year', 'isdelayed_flag', 'transcriptcomponentid', 'keydevid', 'proid', 'transcriptpersonname']
 PROJECT_DIR = os.getcwd()
 DATA_FOLDER = os.path.join(PROJECT_DIR, "data")
 model_folder = os.path.join(PROJECT_DIR, "models")
@@ -26,8 +26,8 @@ DATE_COLUMN = "transcriptcreationdate_utc"
 TOPIC_SCATTER_PLOT = os.path.join(output_fig_folder, "topic_scatter_plot.pdf")
 stop_list = pd.read_csv(os.path.join(DATA_FOLDER, "stoplist.csv"))['stopwords'].tolist()
 TEXT_COLUMN = "componenttext" # the column in the main earnings call data that contains the earnings transcript
-START_ROWS = 0 # start row to read from the csv file
-NROWS = 10000000 # number of rows to read from the csv file
+START_ROWS = 10000000 # start row to read from the csv file
+NROWS = 20000000 # number of rows to read from the csv file
 CHUNK_SIZE = 1000 # number of rows to read at a time
 YEAR_FILTER = 2020 # train the model on data from start year to this year
 START_YEAR = 2000 # start year of the data
