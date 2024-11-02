@@ -179,7 +179,7 @@ def score_tf_idf(documents, doc_ids, N_doc, method, expanded_dict, **kwargs):
 
 
 if __name__ == "__main__":
-    current_dict_path = str(Path(gl.OUTPUT_FOLDER, "dict", f"expanded_dict.csv"))
+    current_dict_path = str(Path(gl.OUTPUT_FOLDER, "dict", f"expanded_dict_cleaned.csv"))
     
     culture_dict, all_dict_words = attention_dictionary.read_dict_from_csv(
         current_dict_path

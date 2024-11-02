@@ -5,3 +5,10 @@ model/*
 output/*
 cuda_env/*
 requirements.txt
+w2v_culture/data/*
+w2v_culture/models/*
+w2v_culture/outputs/*
+w2v_culture/resources/*
+w2v_culture/stanford-corenlp-full-2018-10-05/*
+w2v_culture/corenlp_server-07552653b2614d81.props
+w2v_culture/culture/*

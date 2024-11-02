@@ -9,6 +9,9 @@ N_CORES: int = 8  # max number of CPU cores to use
 RAM_CORENLP: str = "32G"  # max RAM allocated for parsing using CoreNLP; increase to speed up parsing
 PARSE_CHUNK_SIZE: int = 100 # number of lines in the input file to process uing CoreNLP at once. Increase on workstations with larger RAM (e.g. to 1000 if RAM is 64G)  
 
+# Directory locations
+os.environ["CORENLP_HOME"] = "/home/zc_research/TAD/w2v_culture/stanford-corenlp-full-2018-10-05/"
+
 # Input data options
 INPUT_file = os.path.join('..', 'narrativesBERT','data', 'earnings_calls_20231017.csv')
 
@@ -21,15 +24,14 @@ DATA_FOLDER = os.path.join(PROJECT_DIR, "data")
 MODEL_FOLDER = os.path.join(PROJECT_DIR, "models")
 OUTPUT_FOLDER = os.path.join(PROJECT_DIR, "outputs")
 
-DATA_FOLDER_W2V = os.path.join(DATA_FOLDER, "w2v_culture")
-MODEL_FOLDER_W2V = os.path.join(PROJECT_DIR, "w2v_culture", "models")
-OUTPUT_FOLDER_W2V = os.path.join(PROJECT_DIR, "w2v_culture", "outputs")
+DATA_FOLDER_W2V = os.path.join(PROJECT_DIR, "data")
+MODEL_FOLDER_W2V = os.path.join(PROJECT_DIR, "models")
+OUTPUT_FOLDER_W2V = os.path.join(PROJECT_DIR, "outputs")
 
-output_fig_folder = os.path.join(OUTPUT_FOLDER, "fig")
+output_fig_folder = os.path.join(PROJECT_DIR, "fig")
 data_filename = 'earnings_calls_20231017.csv'
 DATE_COLUMN = "transcriptcreationdate_utc"
 TOPIC_SCATTER_PLOT = os.path.join(output_fig_folder, "topic_scatter_plot.pdf")
-stop_list = pd.read_csv(os.path.join(DATA_FOLDER, "stoplist.csv"))['stopwords'].tolist()
 TEXT_COLUMN = "componenttext" # the column in the main earnings call data that contains the earnings transcript
 START_ROWS = 10000000 # start row to read from the csv file
 NROWS = 20000000 # number of rows to read from the csv file
