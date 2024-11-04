@@ -162,7 +162,7 @@ def score_tf_idf(documents, doc_ids, N_doc, method, expanded_dict, **kwargs):
                     gl.OUTPUT_FOLDER,
                     "scores",
                     f"{method}",
-                    f"scores_{method}_{kwargs['topic_name']}.csv",
+                    f"scores_{method}.csv",
                 )
             ),
             index=False,
@@ -173,7 +173,7 @@ def score_tf_idf(documents, doc_ids, N_doc, method, expanded_dict, **kwargs):
                 gl.OUTPUT_FOLDER,
                 "scores",
                 "word_contributions",
-                f"word_contribution_{method}_{kwargs['topic_name']}.csv",
+                f"word_contribution_{method}.csv",
             )
         )
 

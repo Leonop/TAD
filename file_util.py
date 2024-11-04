@@ -145,7 +145,7 @@ def load_data(input_file):
 
 def save_id2firm(df, filename):
     output_dir = os.path.join(gl.DATA_FOLDER, 'input', f'id2firms_{filename}.txt')
-    id2firm = df[['transcriptid', 'companyid', 'gvkey', 'year', 'quarter', 'date', 'sentenceid', 'proid', 'transcriptpersonname']]
+    id2firm = df[['transcriptid', 'companyid', 'gvkey', 'year', 'quarter', 'date', 'transcriptcomponenttypename', 'sentenceid','componentorder', 'proid', 'transcriptpersonname', 'word_count']]
     # Save the DataFrame to a text file without the index
     id2firm.to_csv(output_dir, sep='\t', index=False, header=True)
 
