@@ -10,13 +10,13 @@ from pathlib import Path
 import pickle
 import multiprocessing
 from functools import partial
-import file_util
+from ..TAD import file_util
 from collections import defaultdict
 from narrativesBERT import attention_dictionary as ad
 
 class DataCleaner:
     def __init__(self):
-        self.topics = "topic_dictionary.json"
+        self.topics = "seed_dictionary.json"
         self.path = os.getcwd()
         self.subtopics = ['revenue_earnings', 'financial_position',
        'cash flow', 'productivity', 'guidance', 'growth', 'dividends',
@@ -28,7 +28,7 @@ class DataCleaner:
        'legal risk', 'climate risk', 'cybersecurity risk', 'technology',
        'artificial intelligence', 'automation', 'urgency', 'emphasize',
        'long term']
-        self.topic_table = pd.read_json(os.path.join(self.path, "data", self.topics))
+        self.topic_table = pd.read_json(os.path.join(self.path, "outputs", "dict", self.topics))
 
     def extract_dict_values(self, _dict):
         col_list = []
