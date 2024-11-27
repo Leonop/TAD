@@ -15,47 +15,63 @@ from tqdm import tqdm as tqdm
 import file_util
 import global_options as gl
 from narrativesBERT import attention_dictionary
+import shelve
 
 
 # @TODO: The scoring functions are not memory friendly. The entire pocessed corpus needs to fit in the RAM. Rewrite a memory friendly version.
 
-
 def construct_doc_level_corpus(sent_corpus_file, sent_id_file):
-    """Construct document level corpus from sentence level corpus and write to disk.
-    Dump "corpus_doc_level.pickle" and "doc_ids.pickle" to Path(gl.OUTPUT_FOLDER, "scores", "temp"). 
-    
+    """Construct document-level corpus from sentence-level corpus and write to disk.
+    Dump "corpus_doc_level.pickle" and "doc_ids.pickle" to Path(gl.OUTPUT_FOLDER, "scores", "temp").
+
     Arguments:
         sent_corpus_file {str or Path} -- The sentence corpus after parsing and cleaning, each line is a sentence
-        sent_id_file {str or Path} -- The sentence ID file, each line correspond to a line in the sent_co(docID_sentenceID)
-    
+        sent_id_file {str or Path} -- The sentence ID file, each line corresponds to a line in the sent_corpus (docID_sentenceID)
+
     Returns:
         [str], [str], int -- a tuple of a list of documents, a list of document IDs, and the number of documents
     """
-    print("Constructing doc level corpus")
-    # sentence level corpus
-    sent_corpus = file_util.file_to_list(sent_corpus_file)
-    sent_IDs = file_util.file_to_list(sent_id_file)
-    assert len(sent_IDs) == len(sent_corpus)
-    # doc id for each sentence
-    doc_ids = [x.split("_")[0] for x in sent_IDs]
-    # concat all text from the same doc
-    id_doc_dict = defaultdict(lambda: "")
-    for i, id in enumerate(doc_ids):
-        id_doc_dict[id] += " " + sent_corpus[i]
-    # create doc level corpus
-    corpus = list(id_doc_dict.values())
-    doc_ids = list(id_doc_dict.keys())
-    assert len(corpus) == len(doc_ids)
-    with open(
-        Path(gl.OUTPUT_FOLDER, "scores", "temp", "corpus_doc_level.pickle"),
-        "wb",
-    ) as out_f:
+    print("Constructing document-level corpus")
+    
+    # Define the path to the temp directory
+    temp_dir = os.path.join(gl.OUTPUT_FOLDER, "scores", "temp")
+    # Check if the directory does not exist
+    if not os.path.exists(temp_dir):
+        # Create the directory
+        os.makedirs(temp_dir)
+
+    # Use shelve to store documents on disk
+    shelve_path = os.path.join(temp_dir, 'doc_shelf.db')
+    if os.path.exists(shelve_path):
+        os.remove(shelve_path)
+
+    with shelve.open(shelve_path, writeback=True) as id_doc_shelf:
+        with open(sent_corpus_file, 'r') as corpus_f, open(sent_id_file, 'r') as id_f:
+            for corpus_line, id_line in zip(corpus_f, id_f):
+                corpus_line = corpus_line.strip()
+                id_line = id_line.strip()
+                doc_id = id_line.split("_")[0]
+
+                # Append the sentence to the corresponding document
+                if doc_id in id_doc_shelf:
+                    id_doc_shelf[doc_id] += " " + corpus_line
+                else:
+                    id_doc_shelf[doc_id] = corpus_line
+
+        # Ensure data is written to disk
+        id_doc_shelf.sync()
+
+        # Retrieve document IDs and texts
+        doc_ids = list(id_doc_shelf.keys())
+        corpus = [id_doc_shelf[doc_id] for doc_id in doc_ids]
+        N_doc = len(doc_ids)
+
+    # Save the corpus and doc_ids to disk
+    with open(Path(temp_dir, "corpus_doc_level.pickle"), "wb") as out_f:
         pickle.dump(corpus, out_f)
-    with open(
-        Path(gl.OUTPUT_FOLDER, "scores", "temp", "doc_ids.pickle"), "wb"
-    ) as out_f:
+    with open(Path(temp_dir, "doc_ids.pickle"), "wb") as out_f:
         pickle.dump(doc_ids, out_f)
-    N_doc = len(corpus)
+    print("Constructing document-level corpus is done!")
     return corpus, doc_ids, N_doc
 
 
@@ -201,7 +217,7 @@ if __name__ == "__main__":
 
     ## Score ========================
     # create document scores
-    methods = ["TF","TFIDF", "WFIDF"]
+    methods = ["TFIDF"]
     for method in methods:
         score_tf_idf(
             corpus,
