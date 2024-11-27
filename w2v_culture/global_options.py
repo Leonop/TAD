@@ -41,6 +41,17 @@ START_YEAR = 2000 # start year of the data
 # Batch Size for Bert Topic Model Training in BERTopic_big_data_hpc.py
 BATCH_SIZE = 1000
 
+# Parsing and analysis options
+STOPWORDS: Set[str] = set(
+    Path("resources", "StopWords_Generic.txt").read_text().lower().split()
+)  # Set of stopwords from https://sraf.nd.edu/textual-analysis/resources/#StopWords
+PHRASE_THRESHOLD: int = 10  # threshold of the phraser module (smaller -> more phrases)
+PHRASE_MIN_COUNT: int = 5  # min number of times a bigram needs to appear in the corpus to be considered as a phrase
+W2V_DIM: int = 300  # dimension of word2vec vectors
+W2V_WINDOW: int = 5  # window size in word2vec
+W2V_ITER: int = 20  # number of iterations in word2vec
+N_WORDS_DIM: int = 500  # max number of words in each dimension of the dictionary
+DICT_RESTRICT_VOCAB = 0.2 # change to a fraction number (e.g. 0.2) to restrict the dictionary vocab in the top 20% of most frequent vocab
 
 # Inputs for constructing the expanded dictionary
 DIMS: List[str] = [

@@ -41,7 +41,7 @@ clean_file(
 # train and apply a phrase model to detect 2-word phrases ----------------
 culture_models.train_bigram_model(
     input_path=Path(
-        gl.DATA_FOLDER_W2V, "data", "processed", "unigram", "documents.txt"
+        gl.DATA_FOLDER_W2V, "processed", "unigram", "documents.txt"
     ),
     model_path=Path(gl.DATA_FOLDER_W2V, "models", "phrases", "bigram.mod"),
 )
@@ -50,7 +50,7 @@ culture_models.file_bigramer(
         gl.DATA_FOLDER_W2V, "processed", "unigram", "documents.txt"
     ),
     output_path=Path(
-        gl.DATA_FOLDER_W2V, "data", "processed", "bigram", "documents.txt"
+        gl.DATA_FOLDER_W2V, "processed", "bigram", "documents.txt"
     ),
     model_path=Path(gl.DATA_FOLDER_W2V, "phrases", "bigram.mod"),
     scoring="original_scorer",
