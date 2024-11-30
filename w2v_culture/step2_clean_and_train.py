@@ -52,7 +52,7 @@ culture_models.file_bigramer(
     output_path=Path(
         gl.DATA_FOLDER_W2V, "processed", "bigram", "documents.txt"
     ),
-    model_path=Path(gl.DATA_FOLDER_W2V, "phrases", "bigram.mod"),
+    model_path=Path(gl.DATA_FOLDER_W2V, "models",  "phrases", "bigram.mod"),
     scoring="original_scorer",
     threshold=gl.PHRASE_THRESHOLD,
 )
@@ -60,7 +60,7 @@ culture_models.file_bigramer(
 # train and apply a phrase model to detect 3-word phrases ----------------
 culture_models.train_bigram_model(
     input_path=Path(gl.DATA_FOLDER, "processed", "bigram", "documents.txt"),
-    model_path=Path(gl.DATA_FOLDER_W2V, "phrases", "trigram.mod"),
+    model_path=Path(gl.DATA_FOLDER_W2V, "models", "phrases", "trigram.mod"),
 )
 culture_models.file_bigramer(
     input_path=Path(gl.DATA_FOLDER, "processed", "bigram", "documents.txt"),

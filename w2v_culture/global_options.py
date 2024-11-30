@@ -40,6 +40,7 @@ YEAR_FILTER = 2020 # train the model on data from start year to this year
 START_YEAR = 2000 # start year of the data
 # Batch Size for Bert Topic Model Training in BERTopic_big_data_hpc.py
 BATCH_SIZE = 1000
+PHRASE_MAX_VOCAB_SIZE = 10000000
 
 # Parsing and analysis options
 STOPWORDS: Set[str] = set(
