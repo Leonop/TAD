@@ -10,7 +10,7 @@ from pathlib import Path
 from stanfordnlp.server import CoreNLPClient
 
 import global_options as gl
-from culture import file_util, preprocess_parallel
+from .culture import file_util, preprocess_parallel
 
 
 def process_largefile(
@@ -93,7 +93,7 @@ if __name__ == "__main__":
         memory=gl.RAM_CORENLP,
         threads=gl.N_CORES,
         timeout=12000000,
-        endpoint="http://localhost:9002",  # change port here and in preprocess_parallel.py if 9002 is occupied
+        endpoint="http://localhost:9000",  # change port here and in preprocess_parallel.py if 9002 is occupied
         max_char_length=1000000,
     ) as client:
         in_file = Path(gl.DATA_FOLDER_W2V, "input", "documents.txt")

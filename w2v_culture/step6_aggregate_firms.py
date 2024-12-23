@@ -12,7 +12,7 @@ from tqdm import tqdm
 print("Aggregating scores to firms and adjusting by document lengths.")
 
 def aggregate_daily(topic_name, method = "TF"):
-    id2firm = pd.read_csv(str(Path(gl.DATA_FOLDER, "input", "id2firms.txt")), sep="\t")
+    id2firm = pd.read_csv(str(Path(gl.DATA_FOLDER, "input", "id2firms_all.txt")), sep="\t")
     # rename the column id to document_id
     id2firm.rename(columns={"sentenceid": "Doc_ID", "Unnamed: 0": "index"}, inplace=True)
     scores = pd.read_csv(
