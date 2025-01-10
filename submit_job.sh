@@ -16,4 +16,4 @@ module load os/el7 gcc/11.2.1 python/miniforge-24.3.0
 conda init
 conda activate cuda_env
 cd ~/Research/TAD/
-python -m w2v_culture.step6_aggregate_firms.py
+python -m w2v_culture.step5_score

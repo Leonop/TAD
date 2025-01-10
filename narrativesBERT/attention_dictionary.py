@@ -241,7 +241,7 @@ def score_tf_idf(
     expanded_words,
     df_dict,
     N_doc,
-    method="TFIDF",
+    method,
     word_weights=None,
     normalize=False,
     topic_name=None,
