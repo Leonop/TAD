@@ -17,6 +17,7 @@ INPUT_file = os.path.join('..', 'narrativesBERT','data', 'earnings_calls_2023101
 
 # Composite key in earnings call data
 UNIQUE_KEYS = ['companyid', 'gvkey', 'mostimportantdateutc', 'componentorder', 'transcriptcomponenttypename'] # composite key in earnings call data
+UNIQUE_KEYS_TAD = ['Doc_ID', 'gvkey', 'year', 'quarter', 'transcriptcomponenttypename'] # in TAD merge id2frim_alyst with narratives
 SELECTED_COLS = ['companyid', 'gvkey', 'mostimportantdateutc', 'componentorder', 'transcriptcomponenttypename', 'transcriptid', 'speakertypeid', 'componenttext', 'word_count', 'year', 'isdelayed_flag', 'transcriptcomponentid', 'keydevid', 'proid', 'transcriptpersonname']
 PROJECT_DIR = os.getcwd()
 
