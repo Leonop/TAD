@@ -54,7 +54,6 @@ class TAD:
         self.narratives_path = os.path.join(os.getcwd(), "w2v_culture", "outputs", "scores", f"{model}", f"combined_scores_{model}.csv")
         logging.info(f"Narratives path: {self.narratives_path}")
         self.model_type = model
-        self.analyst_feature = analyst_feature
         self.topics_ = []  # Initialize empty list
         self.id2firms_path = os.path.join(os.getcwd(), "data", "id2firms_alyst.csv")
         self.UNIQUE_KEYS_TAD = [
@@ -64,6 +63,8 @@ class TAD:
             'quarter', 
             'transcriptcomponenttypename'
         ]
+        self.analyst_feature = analyst_feature
+        self.output_file = os.path.join(os.getcwd(), "outputs", f"TAD_score_{self.model_type}_{self.analyst_feature}.csv")
         try:
             # Load narratives and get topics
             logging.info("Reading first chunk of data...")
@@ -75,7 +76,7 @@ class TAD:
             
             self.topics_ = [col for col in first_chunk.columns 
                         if col not in ['Doc_ID', 'sentence_id', 'gvkey', 'year', 'quarter', 
-                                    'Ptranscriptcomponenttypename', 'document_length', 'GenExp']]
+                                    'Ptranscriptcomponenttypename', 'document_length', 'GenExp','FinExp']]
             logging.info(f"Found {len(self.topics_)} topics: {self.topics_}")
             
             # Initialize narratives iterator
@@ -186,8 +187,10 @@ class TAD:
         try:
             logging.info(f"Computing TAD for firms using {firm_id} as identifier")
             
-            # Initialize results list
+            # Initialize results list and counters
             results = []
+            processed_count = 0
+            missing_sections_count = 0
             
             # Group by firm, year, and quarter
             keys = [firm_id, 'year', 'quarter']
@@ -202,17 +205,21 @@ class TAD:
             os.makedirs(output_dir, exist_ok=True)
             
             # Create output file
-            output_file = os.path.join(output_dir, f"TAD_score_{self.model_type}_{self.analyst_feature}.csv")
-            
             # Write headers
-            with open(output_file, "w") as f:
-                f.write(f"{firm_id},year,quarter,tad_ps_q,tad_ps_a,tad_q_a\n")
+            with open(self.output_file, "w") as f:
+                f.write(f"{firm_id},year,quarter,tad_ps_q,tad_ps_a,tad_q_a,tad_ps_q_exp,tad_ps_a_exp,tad_q_a_exp\n")
             
             # Process each group
-            for name, group in tqdm(grouped):
+            for name, group in tqdm(grouped, 
+                                  desc="Processing groups",
+                                  bar_format="{desc}: {percentage:3.0f}%|{bar}| {n_fmt}/{total_fmt} [{elapsed}<{remaining}, {rate_fmt}{postfix}]",
+                                  colour="green"):
                 try:
                     # Compute TAD scores
-                    tad_ps_q, tad_ps_a, tad_q_a = self.get_v_a_con(group)
+                    ps_vector, q_vector, a_vector = self.get_v_a_con(group)
+                    ps_vector_adj, q_vector_adj, a_vector_adj = self.get_v_a_con(group, analyst_feature=self.analyst_feature)
+                    tad_ps_q, tad_ps_a, tad_q_a = self.compute_tad_scores(ps_vector, q_vector, a_vector)
+                    tad_ps_q_adj, tad_ps_a_adj, tad_q_a_adj = self.compute_tad_scores(ps_vector_adj, q_vector_adj, a_vector_adj)
                     
                     # Store results
                     result = {
@@ -221,17 +228,45 @@ class TAD:
                         'quarter': name[2],
                         'tad_ps_q': tad_ps_q,
                         'tad_ps_a': tad_ps_a,
-                        'tad_q_a': tad_q_a
+                        'tad_q_a': tad_q_a,
+                        'tad_ps_q_adj': tad_ps_q_adj,
+                        'tad_ps_a_adj': tad_ps_a_adj,
+                        'tad_q_a_adj': tad_q_a_adj
                     }
                     results.append(result)
                     
                     # Write to file
-                    with open(output_file, "a") as f:
-                        f.write(f"{name[0]},{name[1]},{name[2]},{tad_ps_q},{tad_ps_a},{tad_q_a}\n")
+                    with open(self.output_file, "a") as f:
+                        row = [
+                            str(name[0]),  # firm_id
+                            str(name[1]),  # year
+                            str(name[2]),  # quarter
+                            str(tad_ps_q),
+                            str(tad_ps_a),
+                            str(tad_q_a),
+                            str(tad_ps_q_adj),
+                            str(tad_ps_a_adj),
+                            str(tad_q_a_adj)
+                        ]
+                        f.write(",".join(row) + "\n")
                     
+                    processed_count += 1
+                    
+                    # Track missing sections
+                    if any(np.isnan(x) for x in [tad_ps_q, tad_ps_a, tad_q_a]):
+                        missing_sections_count += 1
+                        
                 except Exception as e:
                     logging.warning(f"Error processing group {name}: {str(e)}")
                     continue
+            
+            # Log summary
+            logging.info(f"\nProcessing Summary:")
+            logging.info(f"Total groups: {total_groups}")
+            logging.info(f"Successfully processed: {processed_count}")
+            logging.info(f"Groups with missing sections: {missing_sections_count}")
+            if total_groups > 0:
+                logging.info(f"Success rate: {(processed_count/total_groups)*100:.2f}%")
             
             logging.info(f"Successfully processed {len(results)} firms")
             return results
@@ -246,70 +281,189 @@ class TAD:
     def add_filter_analyst_feature(self, df, feature):
         """Add weights based on analyst features."""
         try:
+            if df.empty:
+                logging.warning("Empty DataFrame received")
+                return df
+            
+            if feature not in df.columns:
+                logging.warning(f"Feature {feature} not found. Available columns: {df.columns.tolist()}")
+                return df
+            
+            # Add validation for numeric values
+            if not np.issubdtype(df[feature].dtype, np.number):
+                logging.warning(f"Feature {feature} is not numeric. Converting...")
+                df[feature] = pd.to_numeric(df[feature], errors='coerce')
+            
             logging.info(f"Adding weights for feature: {feature}")
             
             # Check if feature exists
             if feature not in df.columns:
-                logging.info(f"Feature {feature} found in DataFrame")
+                logging.warning(f"Feature {feature} not found in DataFrame")
                 return df
+            
+            # Add debug logging for feature values
+            logging.info(f"Feature stats before normalization:")
+            logging.info(f"Mean: {df[feature].mean():.4f}")
+            logging.info(f"Max: {df[feature].max():.4f}")
+            logging.info(f"Min: {df[feature].min():.4f}")
+            
+            # Fill NaN values with 0
+            df[feature] = df[feature].fillna(0) + 1
+            
+            # Normalize feature values
+            max_val = df[feature].max()
+            if max_val > 0:
+                weights = df[feature] / max_val
             else:
-                # Fill NaN values with 0
-                df[feature] = df[feature].fillna(0)
-                
-                # Normalize feature values
-                max_val = df[feature].max()
-                if max_val > 0:
-                    weights = df[feature] / max_val
-                else:
-                    weights = df[feature]
-                
-                # Apply weights to topic columns
-                for topic in self.topics_:
-                    df[topic] = df[topic] * weights
-                
-                logging.info("Successfully added analyst feature weights")
-                return df
+                weights = df[feature]
+            
+            # Add debug logging for weights
+            logging.info(f"Weight stats after normalization:")
+            logging.info(f"Mean: {weights.mean():.4f}")
+            logging.info(f"Max: {weights.max():.4f}")
+            logging.info(f"Min: {weights.min():.4f}")
+            
+            # Log topic values before weighting
+            sample_topic = self.topics_[0]
+            logging.info(f"Sample topic '{sample_topic}' before weighting:")
+            logging.info(f"Mean: {df[sample_topic].mean():.4f}")
+            
+            # Apply weights to topic columns
+            for topic in self.topics_:
+                df[topic] = df[topic] * weights
+            
+            # Log topic values after weighting
+            logging.info(f"Sample topic '{sample_topic}' after weighting:")
+            logging.info(f"Mean: {df[sample_topic].mean():.4f}")
+            
+            logging.info("Successfully added analyst feature weights")
+            return df
             
         except Exception as e:
             logging.error(f"Error in add_filter_analyst_feature: {str(e)}")
             raise
 
-    def get_v_a_con(self, row_doc, section_id='transcriptcomponenttypename'):
-        """Compute TAD scores for a group of data."""
+    def get_v_a_con(self, row_doc, section_id='transcriptcomponenttypename', analyst_feature=None):
+        """
+        Compute TAD scores for a group of data.
+        Returns NaN vectors for missing sections.
+        """
         try:
-            logging.info(f"Computing TAD for group with shape: {row_doc.shape}")
+            if row_doc.empty:
+                logging.warning("Empty group received")
+                nan_vector = np.full(len(self.topics_), np.nan)
+                return nan_vector, nan_vector, nan_vector
+            
+            # Check if section_id column exists
+            if section_id not in row_doc.columns:
+                logging.error(f"Section ID column '{section_id}' not found in data")
+                nan_vector = np.full(len(self.topics_), np.nan)
+                return nan_vector, nan_vector, nan_vector
+            
+            logging.info(f"Input data shape: {row_doc.shape}")
+            logging.info(f"Available sections: {row_doc[section_id].unique()}")
             
             # Add weights based on analyst features
-            row_doc = self.add_filter_analyst_feature(row_doc, self.analyst_feature)
-            
+            if analyst_feature is not None:
+                adj_row_doc = self.add_filter_analyst_feature(row_doc.copy(), analyst_feature)  # Use copy to prevent modifying original
+            else:
+                adj_row_doc = row_doc
+
             # Group by section type and compute mean topic vectors
-            section_vectors = row_doc.groupby(section_id)[self.topics_].mean()
+            section_vectors = adj_row_doc.groupby(section_id)[self.topics_].mean()
             logging.info(f"Created section vectors with shape: {section_vectors.shape}")
             
-            # Check for required sections
-            required_sections = ['Presenter Speech', 'Question', 'Answer']
-            missing_sections = set(required_sections) - set(section_vectors.index)
+            # Create NaN vector with same length as topics
+            nan_vector = np.full(len(self.topics_), np.nan)
+            
+            # Extract vectors for each section, return NaN vector if section is missing
+            ps_vector = section_vectors.loc['Presenter Speech'].values if 'Presenter Speech' in section_vectors.index else nan_vector
+            q_vector = section_vectors.loc['Question'].values if 'Question' in section_vectors.index else nan_vector
+            a_vector = section_vectors.loc['Answer'].values if 'Answer' in section_vectors.index else nan_vector
+            
+            # Log which sections are missing
+            missing_sections = set(['Presenter Speech', 'Question', 'Answer']) - set(section_vectors.index)
             if missing_sections:
-                raise ValueError(f"Missing required sections: {missing_sections}")
+                logging.warning(f"Missing sections: {missing_sections}")
             
-            # Extract vectors for each section
-            ps_vector = section_vectors.loc['Presenter Speech'].values
-            q_vector = section_vectors.loc['Question'].values
-            a_vector = section_vectors.loc['Answer'].values
+            # Add debug logging for non-zero elements in available vectors
+            if not np.isnan(ps_vector).all():
+                logging.info(f"PS non-zero elements: {np.count_nonzero(ps_vector)}")
+            if not np.isnan(q_vector).all():
+                logging.info(f"Q non-zero elements: {np.count_nonzero(q_vector)}")
+            if not np.isnan(a_vector).all():
+                logging.info(f"A non-zero elements: {np.count_nonzero(a_vector)}")
+
+            return ps_vector, q_vector, a_vector
+    
+        except Exception as e:
+            logging.error(f"Error in get_v_a_con: {str(e)}")
+            # Return NaN vectors in case of error
+            nan_vector = np.full(len(self.topics_), np.nan)
+            return nan_vector, nan_vector, nan_vector
+        
+    def compute_tad_scores(self, ps_vector, q_vector, a_vector):
+        """
+        Compute TAD scores.
+        Returns NaN for TAD scores if any of the required vectors contains NaN.
+        """
+        try:
+            # Add input validation
+            if ps_vector is None or q_vector is None or a_vector is None:
+                logging.error("Received None vector input when compute TAD")
+                return np.nan, np.nan, np.nan
             
-            # Compute TAD scores (1 - cosine similarity)
-            tad_ps_q = 1 - self.compute_cosine_similarity(ps_vector, q_vector)
-            tad_ps_a = 1 - self.compute_cosine_similarity(ps_vector, a_vector)
-            tad_q_a = 1 - self.compute_cosine_similarity(q_vector, a_vector)
+            # Check for NaN vectors
+            if (np.isnan(ps_vector).all() or 
+                np.isnan(q_vector).all() or 
+                np.isnan(a_vector).all()):
+                logging.warning("One or more vectors are all NaN")
+                return np.nan, np.nan, np.nan
             
-            logging.info(f"Computed TAD scores - PS-Q: {tad_ps_q:.4f}, PS-A: {tad_ps_a:.4f}, Q-A: {tad_q_a:.4f}")
+            # Add dimension checks
+            vectors = [ps_vector, q_vector, a_vector]
+            if not all(len(v) == len(self.topics_) for v in vectors if not np.isnan(v).all()):
+                logging.error("Vector dimension mismatch")
+                return np.nan, np.nan, np.nan
+            
+            # Check if any vector is all NaN
+            def is_nan_vector(vector):
+                return np.isnan(vector).all()
+            
+            # Initialize TAD scores
+            tad_ps_q = np.nan
+            tad_ps_a = np.nan
+            tad_q_a = np.nan
+            
+            # Compute PS-Q TAD score
+            if not (is_nan_vector(ps_vector) or is_nan_vector(q_vector)):
+                tad_ps_q = 1 - self.compute_cosine_similarity(ps_vector, q_vector)
+                logging.info(f"Computed TAD PS-Q: {tad_ps_q:.4f}")
+            else:
+                logging.warning("Skipping PS-Q TAD computation due to NaN vectors")
+                
+            # Compute PS-A TAD score
+            if not (is_nan_vector(ps_vector) or is_nan_vector(a_vector)):
+                tad_ps_a = 1 - self.compute_cosine_similarity(ps_vector, a_vector)
+                logging.info(f"Computed TAD PS-A: {tad_ps_a:.4f}")
+            else:
+                logging.warning("Skipping PS-A TAD computation due to NaN vectors")
+                
+            # Compute Q-A TAD score
+            if not (is_nan_vector(q_vector) or is_nan_vector(a_vector)):
+                tad_q_a = 1 - self.compute_cosine_similarity(q_vector, a_vector)
+                logging.info(f"Computed TAD Q-A: {tad_q_a:.4f}")
+            else:
+                logging.warning("Skipping Q-A TAD computation due to NaN vectors")
+            
+            # Log final results
+            logging.info(f"Final TAD scores - PS-Q: {tad_ps_q}, PS-A: {tad_ps_a}, Q-A: {tad_q_a}")
             
             return tad_ps_q, tad_ps_a, tad_q_a
             
         except Exception as e:
-            logging.error(f"Error in get_v_a_con: {str(e)}")
-            logging.error(f"Group data columns: {row_doc.columns.tolist()}")
-            raise
+            logging.error(f"Error in compute_tad_scores: {str(e)}")
+            return np.nan, np.nan, np.nan
 
     def compute_cosine_similarity(self, vector1, vector2):
         """
@@ -353,28 +507,34 @@ class TAD:
 # In main:
 if __name__ == "__main__":
     try:
-        # Set up logging first
+        # Add more detailed progress tracking
         setup_logging()
         logging.info("Starting TAD computation script")
         
-        # Initialize TAD
-        tad = TAD(model='TFIDF', analyst_feature="GenExp")
+        # Initialize TAD with progress checks
+        logging.info("Initializing TAD class...")
+        tad = TAD(model='TFIDF', analyst_feature="FinExp") # or "FinExp" You can change the analyst_feature to "FinExp" to use the financial expert feature
+        logging.info("TAD initialization complete")
         
-        # Process all chunks and merge with id2firms
+        # Process data with progress updates
+        logging.info("Merging narratives with id2firms...")
         merged_data = tad.merge_narratives_with_id2firms()
-        logging.info(f"Processing complete dataset with shape: {merged_data.shape}")
+        logging.info(f"Merged data shape: {merged_data.shape}")
         
-        # Compute TAD for all data
+        # Add data validation
+        if merged_data.empty:
+            raise ValueError("No data after merging")
+            
+        # Compute TAD with progress tracking
+        logging.info("Computing TAD scores...")
         results = tad.cpt_firm_TAD(merged_data)
         
-        # Check if results is not None before getting length
-        if results is not None:
-            logging.info(f"Processed {len(results)} firms")
+        # Validate results
+        if not results:
+            logging.warning("No results generated")
         else:
-            logging.warning("No results were returned from TAD computation")
-        
-        logging.info("Script completed successfully")
-        
+            logging.info(f"Generated results for {len(results)} firms")
+            
     except Exception as e:
-        logging.error(f"Script failed with error: {str(e)}")
+        logging.error(f"Script failed: {str(e)}", exc_info=True)
         raise
